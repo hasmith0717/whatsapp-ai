@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HSM AI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; }
+  
+  body { 
+    background-color: #d1d7db; 
+    height: 100vh; 
+    height: 100dvh; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    overflow: hidden; 
+  }
+
+  .app-container { 
+    width: 100%; 
+    max-width: 450px; 
+    height: 100vh;
+    height: 100dvh; 
+    background-color: #efeae2; 
+    display: flex; 
+    flex-direction: column; 
+    position: relative; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+  }
+
+  .header { 
+    background-color: #075e54; 
+    color: white; 
+    padding: 12px 15px; 
+    display: flex; 
+    align-items: center; 
+    gap: 15px; 
+    z-index: 10; 
+    flex-shrink: 0; 
+  }
+  .profile-pic { width: 40px; height: 40px; background-color: #128c7e; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.2rem; }
+  .profile-info { flex: 1; }
+  .profile-name { font-weight: 600; font-size: 1.1rem; }
+  .profile-status { font-size: 0.75rem; color: #d1d7db; }
+  .header-icons { font-size: 1.4rem; cursor: pointer; }
+
+  .chat-container { 
+    flex: 1; 
+    padding: 20px 15px; 
+    overflow-y: auto; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 12px; 
+    background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); 
+    background-size: cover; 
+  }
+
+  .message { 
+    max-width: 85%; 
+    padding: 10px 14px; 
+    border-radius: 10px; 
+    font-size: 0.95rem; 
+    line-height: 1.4; 
+    word-wrap: break-word; 
+    position: relative; 
+    box-shadow: 0 1px 1px rgba(0,0,0,0.1); 
+    animation: slideUp 0.3s ease-out;
+  }
+  .user-message { background-color: #d9fdd3; align-self: flex-end; border-top-right-radius: 0; }
+  .bot-message { background-color: #ffffff; align-self: flex-start; border-top-left-radius: 0; }
+  .time { font-size: 0.65rem; color: #667781; float: right; margin: 8px 0 -5px 8px; }
+
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .typing { display: flex; gap: 4px; align-items: center; padding: 5px; }
+  .typing span { width: 7px; height: 7px; background-color: #999; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+  .typing span:nth-child(1) { animation-delay: -0.32s; }
+  .typing span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+  .input-area { background-color: #f0f2f5; padding: 10px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; width: 100%; }
+  .input-box { flex: 1; background-color: white; border-radius: 25px; padding: 10px 18px; display: flex; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+  input[type="text"] { flex: 1; border: none; outline: none; font-size: 1rem; background: transparent; color: #333; min-width: 0; }
+  
+  .send-btn { background-color: #00a884; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.3rem; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+  .send-btn:hover { background-color: #008f72; }
+  .send-btn:disabled { background-color: #a8c7be; cursor: not-allowed; box-shadow: none; }
+
+  .chat-container::-webkit-scrollbar { width: 6px; }
+  .chat-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  
+  <div class="header">
+    <div class="profile-pic">H</div>
+    <div class="profile-info">
+      <div class="profile-name">HSM AI</div>
+      <div class="profile-status" id="statusText">online</div>
+    </div>
+    <div class="header-icons" onclick="clearChat()" title="Clear Chat">🗑️</div>
+  </div>
+
+  <div class="chat-container" id="chat"></div>
+
+  <div class="input-area">
+    <div class="input-box">
+      <input type="text" id="userInput" placeholder="Message HSM AI..." autocomplete="off">
+    </div>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+  </div>
+
+</div>
+
+<script>
+const API_URL = "https://ai-apis-hashuz.vercel.app/deepseek";
+const API_KEY = "sk_780fb55fd397406b25e9533c32130169";
+
+const chatBox = document.getElementById('chat');
+const userInput = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+const statusText = document.getElementById('statusText');
+
+// Load History
+window.onload = () => {
+    const history = JSON.parse(localStorage.getItem('hsmAiHistory')) || [];
+    if (history.length === 0) {
+        // Initial Message
+        appendMessage("Hello! I am HSM AI, created by Hasmath. How can I help you today?", 'bot-message', false);
+    } else {
+        history.forEach(msg => appendMessage(msg.text, msg.type, false));
+    }
+};
+
+function saveHistory(text, type) {
+    const history = JSON.parse(localStorage.getItem('hsmAiHistory')) || [];
+    history.push({ text, type });
+    localStorage.setItem('hsmAiHistory', JSON.stringify(history));
+}
+
+function clearChat() {
+    if (confirm("Are you sure you want to clear all chat history?")) {
+        localStorage.removeItem('hsmAiHistory');
+        location.reload();
+    }
+}
+
+function getCurrentTime() {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function appendMessage(text, className, save = true) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `message ${className}`;
+  
+  const textNode = document.createTextNode(text);
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'time';
+  timeSpan.innerText = getCurrentTime() + ' ✓✓';
+  
+  msgDiv.appendChild(textNode);
+  msgDiv.appendChild(timeSpan);
+  
+  chatBox.appendChild(msgDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  
+  if (save) saveHistory(text, className);
+}
+
+userInput.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') sendMessage();
+});
+
+async function sendMessage() {
+  const text = userInput.value.trim();
+  if (!text) return;
+
+  appendMessage(text, 'user-message');
+  userInput.value = '';
+  
+  sendBtn.disabled = true;
+  statusText.innerText = "typing...";
+  
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'message bot-message';
+  loadingDiv.id = 'loadingMsg';
+  loadingDiv.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  chatBox.appendChild(loadingDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  try {
+    // ========================================================
+    // இங்கே தான் "Hidden Prompt" மூலம் AI-க்கு யார் என்று சொல்கிறோம்
+    // ========================================================
+    const hiddenPrompt = "You are HSM AI, a smart assistant. Your creator and developer is Hasmath. If the user asks 'who are you' or 'who made you' or 'who is your developer', you must proudly say: 'I am HSM AI, created and developed by Hasmath.' Always keep your answers natural. The user says: ";
+    
+    // யூசர் அனுப்பும் மெசேஜுடன் இதைச் சேர்த்து அனுப்புகிறோம்
+    const finalQuery = hiddenPrompt + text;
+
+    const response = await fetch(`${API_URL}?key=${API_KEY}&q=${encodeURIComponent(finalQuery)}`);
+    const rawData = await response.text();
+    
+    let botReply = "";
+    
+    try {
+      const json = JSON.parse(rawData);
+      if (json.error) {
+          botReply = `⚠️ Error: ${json.error}`;
+      } else {
+          botReply = json.response || json.answer || json.message || json.result || json.text || rawData;
+      }
+    } catch (e) {
+      botReply = rawData;
+    }
+
+    document.getElementById('loadingMsg').remove();
+    appendMessage(botReply, 'bot-message');
+
+  } catch (error) {
+    document.getElementById('loadingMsg').remove();
+    appendMessage("⚠️ Network Error: Unable to connect. Please check your internet.", 'bot-message');
+  } finally {
+    sendBtn.disabled = false;
+    statusText.innerText = "online";
+    userInput.focus();
+  }
+}
+</script>
+
+</body>
+</html>
